@@ -1,0 +1,21 @@
+{
+  "name": "xhs_ai",
+  "version": "1.0.0",
+  "description": "",
+  "main": "test-chrome.js",
+  "scripts": {
+    "start": "node --env-file-if-exists=.env test-chrome.js",
+    "start:all": "node --env-file-if-exists=.env multi-start.js",
+    "export-replies": "node --env-file-if-exists=.env export-replies.js",
+    "build-knowledge": "node --env-file-if-exists=.env build-knowledge-base.js",
+    "check": "node --check test-chrome.js && node --check multi-start.js && node --check export-replies.js && node --check build-knowledge-base.js && node --check knowledge-base.js && node --check ai-reply.js && node --check gold-price.js && node --check config.js",
+    "test": "node --test test/*.test.js"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs",
+  "dependencies": {
+    "playwright": "^1.62.1"
+  }
+}

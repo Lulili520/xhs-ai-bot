@@ -1,0 +1,22 @@
+{
+  "accounts": [
+    {
+      "id": "main",
+      "enabled": true,
+      "profileDir": "xhs-profile",
+      "logFile": "data/main.log"
+    },
+    {
+      "id": "account-1",
+      "enabled": true,
+      "profileDir": "xhs-profile-1",
+      "logFile": "data/account-1.log"
+    },
+    {
+      "id": "account-2",
+      "enabled": true,
+      "profileDir": "xhs-profile-2",
+      "logFile": "data/account-2.log"
+    }
+  ]
+}

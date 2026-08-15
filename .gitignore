@@ -1,0 +1,8 @@
+node_modules/
+xhs-profile*/
+.env
+*.log
+data/reply-history-*.json
+data/cleaned-history.json
+data/knowledge-base.json
+.DS_Store
