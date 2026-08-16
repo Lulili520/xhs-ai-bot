@@ -17,6 +17,48 @@
       "enabled": true,
       "profileDir": "xhs-profile-2",
       "logFile": "data/account-2.log"
+    },
+    {
+      "id": "account-3",
+      "enabled": true,
+      "profileDir": "xhs-profile-3",
+      "logFile": "data/account-3.log"
+    },
+    {
+      "id": "account-4",
+      "enabled": true,
+      "profileDir": "xhs-profile-4",
+      "logFile": "data/account-4.log"
+    },
+    {
+      "id": "account-5",
+      "enabled": true,
+      "profileDir": "xhs-profile-5",
+      "logFile": "data/account-5.log"
+    },
+    {
+      "id": "account-6",
+      "enabled": true,
+      "profileDir": "xhs-profile-6",
+      "logFile": "data/account-6.log"
+    },
+    {
+      "id": "account-7",
+      "enabled": true,
+      "profileDir": "xhs-profile-7",
+      "logFile": "data/account-7.log"
+    },
+    {
+      "id": "account-8",
+      "enabled": true,
+      "profileDir": "xhs-profile-8",
+      "logFile": "data/account-8.log"
+    },
+    {
+      "id": "account-9",
+      "enabled": true,
+      "profileDir": "xhs-profile-9",
+      "logFile": "data/account-9.log"
     }
   ]
 }
