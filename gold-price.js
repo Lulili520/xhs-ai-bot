@@ -72,6 +72,12 @@ class GoldPriceService {
         }
     }
 
+    async stop() {
+        this.running = false;
+        if (this.page && !this.page.isClosed()) await this.page.close().catch(() => {});
+        this.page = null;
+    }
+
     getContext(text) {
         if (!isGoldQuestion(text)) return "";
         if (!this.snapshot || Date.now() - this.snapshot.fetchedAt > config.staleAfterMs) {

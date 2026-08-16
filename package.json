@@ -1,14 +1,16 @@
 {
   "name": "xhs_ai",
   "version": "1.0.0",
-  "description": "",
-  "main": "test-chrome.js",
+  "description": "支持动态多账号管理的小红书 AI 客服桌面应用",
+  "main": "desktop/main.js",
   "scripts": {
-    "start": "node --env-file-if-exists=.env test-chrome.js",
+    "start": "node --env-file-if-exists=.env xhs-service.js",
     "start:all": "node --env-file-if-exists=.env multi-start.js",
+    "desktop": "electron .",
+    "dist:win": "electron-builder --win portable --x64",
     "export-replies": "node --env-file-if-exists=.env export-replies.js",
     "build-knowledge": "node --env-file-if-exists=.env build-knowledge-base.js",
-    "check": "node --check test-chrome.js && node --check multi-start.js && node --check export-replies.js && node --check build-knowledge-base.js && node --check knowledge-base.js && node --check ai-reply.js && node --check gold-price.js && node --check config.js",
+    "check": "node --check xhs-service.js && node --check multi-start.js && node --check export-replies.js && node --check build-knowledge-base.js && node --check knowledge-base.js && node --check ai-reply.js && node --check gold-price.js && node --check config.js && node --check desktop/main.js && node --check desktop/preload.js && node --check desktop/account-store.js && node --check desktop/runtime-manager.js && node --check desktop/env.js && node --check desktop/settings-store.js && node --check desktop/renderer/app.js",
     "test": "node --test test/*.test.js"
   },
   "keywords": [],
@@ -17,5 +19,38 @@
   "type": "commonjs",
   "dependencies": {
     "playwright": "^1.62.1"
+  },
+  "devDependencies": {
+    "electron": "^43.4.0",
+    "electron-builder": "^26.0.12"
+  },
+  "build": {
+    "appId": "com.lulili.xhs.ai.customer.service",
+    "productName": "小红书AI客服",
+    "asar": true,
+    "asarUnpack": [
+      "node_modules/playwright-core/**"
+    ],
+    "files": [
+      "desktop/**",
+      "*.js",
+      "accounts.json",
+      "package.json",
+      "node_modules/**"
+    ],
+    "directories": {
+      "output": "dist"
+    },
+    "win": {
+      "target": [
+        {
+          "target": "portable",
+          "arch": [
+            "x64"
+          ]
+        }
+      ],
+      "artifactName": "XHS-AI-Customer-Service-${version}-Windows-${arch}.${ext}"
+    }
   }
 }

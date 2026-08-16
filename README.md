@@ -10,13 +10,38 @@
 
 要求 Node.js 18+、本机 Chrome，以及可登录的小红书专业号账号。
 
+### 桌面 App（推荐）
+
+开发环境启动：
+
+```bash
+npm install
+npm run desktop
+```
+
+桌面版首次安装时不预置任何账号，所有账号都通过界面动态添加、编辑、启用、停止和移除，不限制账号数量。添加账号时必须填写便于识别的名称和地区；列表、日志与移除确认都会同时显示这两项，避免操作错账号。每个账号会自动创建独立的浏览器资料与日志目录。第一次启动账号时会打开 Chrome，请在对应窗口完成小红书登录。
+
+首次打开后点击“AI 设置”填写服务类型、API 密钥、模型和接口地址。API 密钥使用操作系统提供的加密能力保存在当前电脑，不会写入账号配置或打进 EXE。
+
+构建 Windows 64 位免安装版：
+
+```bash
+npm run dist:win
+```
+
+构建结果位于 `dist/`。目标 Windows 电脑仍需安装 Google Chrome，双击 EXE 后即可管理账号。应用中的账号配置和登录资料保存在系统用户数据目录，不会因为替换新版 EXE 而丢失。
+
+> 桌面构建不会包含 `.env`。`.env` 只供命令行开发模式使用，不应提交到 Git 或随安装包分发。
+
+### 命令行模式
+
 ```bash
 npm install
 cp .env.example .env
 npm start
 ```
 
-多账号统一配置在 `accounts.json`，每个账号必须使用不同的 `profileDir`。一键启动所有 `enabled` 账号：
+多账号统一配置在 `accounts.json`，每个账号必须配置唯一 `id`、具体 `name`、具体 `region`，并使用不同的 `profileDir`。一键启动所有 `enabled` 账号：
 
 ```bash
 npm run start:all

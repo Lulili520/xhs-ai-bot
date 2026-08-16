@@ -23,6 +23,7 @@ const FRESH_BEFORE_START_MS = config.freshBeforeStartMs;
 // ============================================================
 
 let page;
+let browserContext;
 const goldPriceService = new GoldPriceService();
 
 const startedAt = Date.now();
@@ -39,6 +40,8 @@ const queuedUsers = new Set();
 
 let processingUser = "";
 let queueRunning = false;
+let serviceRunning = true;
+let shuttingDown = false;
 
 
 // ============================================================
@@ -141,7 +144,7 @@ function chatRoot() {
 
 async function startBrowser() {
 
-    const context =
+    browserContext =
         await chromium.launchPersistentContext(
             PROFILE_DIR,
             {
@@ -157,9 +160,9 @@ async function startBrowser() {
 
 
     page =
-        context.pages()[0]
+        browserContext.pages()[0]
         ||
-        await context.newPage();
+        await browserContext.newPage();
 
 
     page.setDefaultTimeout(8000);
@@ -182,7 +185,7 @@ async function startBrowser() {
     log("LOGIN_OK");
 
     try {
-        await goldPriceService.start(context);
+        await goldPriceService.start(browserContext);
         log("GOLD_MONITOR_STARTED", config.gold.url);
     } catch (error) {
         log("GOLD_MONITOR_FAILED", error.message);
@@ -1716,6 +1719,8 @@ async function initBaseline() {
 
 async function main() {
 
+    log("SERVICE_START", config.account);
+
     await startBrowser();
 
     await initBaseline();
@@ -1726,7 +1731,7 @@ async function main() {
     );
 
 
-    while (true) {
+    while (serviceRunning) {
 
         try {
 
@@ -1755,6 +1760,19 @@ async function main() {
         );
     }
 }
+
+async function shutdown(signal) {
+    if (shuttingDown) return;
+    shuttingDown = true;
+    serviceRunning = false;
+    log("SERVICE_STOP", signal);
+    await goldPriceService.stop();
+    if (browserContext) await browserContext.close().catch(() => {});
+    process.exit(0);
+}
+
+process.once("SIGINT", () => shutdown("SIGINT"));
+process.once("SIGTERM", () => shutdown("SIGTERM"));
 
 
 main()

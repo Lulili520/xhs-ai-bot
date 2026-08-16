@@ -1,0 +1,87 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; style-src 'self'; script-src 'self'">
+    <title>小红书 AI 客服</title>
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <header>
+        <div>
+            <p class="eyebrow">XIAOHONGSHU SERVICE DESK</p>
+            <h1>小红书 AI 客服</h1>
+            <p class="subtitle">集中管理账号、登录状态与自动回复服务</p>
+        </div>
+        <div class="header-actions">
+            <button id="openSettings" class="button secondary">AI 设置</button>
+            <button id="stopAll" class="button secondary">停止全部</button>
+            <button id="startAll" class="button primary">启动全部已启用账号</button>
+        </div>
+    </header>
+
+    <main>
+        <section class="stats" aria-label="运行概况">
+            <article><span>账号总数</span><strong id="totalCount">0</strong></article>
+            <article><span>已启用</span><strong id="enabledCount">0</strong></article>
+            <article><span>运行中</span><strong id="runningCount">0</strong></article>
+        </section>
+
+        <section class="panel accounts-panel">
+            <div class="panel-title">
+                <div><h2>账号管理</h2><p>账号数量不限，每个账号使用独立登录资料。</p></div>
+                <button id="addAccount" class="button primary">＋ 添加账号</button>
+            </div>
+            <div id="emptyState" class="empty" hidden>
+                <strong>还没有账号</strong>
+                <span>点击“添加账号”，创建后启动并在 Chrome 中完成登录。</span>
+            </div>
+            <div id="accountList" class="account-list"></div>
+        </section>
+
+        <section class="panel logs-panel">
+            <div class="panel-title"><div><h2>运行日志</h2><p>显示最近的账号启动、登录和回复状态。</p></div><button id="clearLogs" class="text-button">清空</button></div>
+            <pre id="logs">等待启动账号…</pre>
+        </section>
+    </main>
+
+    <dialog id="accountDialog">
+        <form id="accountForm">
+            <div class="dialog-title"><h2 id="dialogTitle">添加账号</h2><button type="button" id="closeDialog" aria-label="关闭">×</button></div>
+            <input type="hidden" id="accountId">
+            <label>账号名称<input id="accountName" maxlength="40" required placeholder="例如：客服小李"></label>
+            <label>账号地区<input id="accountRegion" maxlength="60" required placeholder="例如：上海静安"></label>
+            <label>微信名片类型<select id="wechatCardType"><option value="enterprise">企业微信</option><option value="personal">个人微信</option></select></label>
+            <label>微信名片名称<input id="wechatCardName" maxlength="80" placeholder="只有一张对应卡片时可留空"></label>
+            <label class="switch-row"><span><strong>启用账号</strong><small>参与“启动全部”操作</small></span><input id="accountEnabled" type="checkbox" checked></label>
+            <div class="dialog-actions"><button type="button" id="cancelDialog" class="button secondary">取消</button><button type="submit" class="button primary">保存</button></div>
+        </form>
+    </dialog>
+
+    <dialog id="removeDialog">
+        <form id="removeForm">
+            <div class="dialog-title"><h2>移除账号</h2><button type="button" id="closeRemoveDialog" aria-label="关闭">×</button></div>
+            <p>将停止并从列表移除：</p>
+            <div class="remove-identity"><strong id="removeName"></strong><span id="removeRegion"></span><code id="removeAccountId"></code></div>
+            <label class="danger-option"><input id="deleteProfile" type="checkbox"><span><strong>同时删除本地登录资料</strong><small>勾选后需要重新登录，且无法撤销。</small></span></label>
+            <div class="dialog-actions"><button type="button" id="cancelRemove" class="button secondary">取消</button><button type="submit" class="button danger">确认移除</button></div>
+        </form>
+    </dialog>
+
+    <dialog id="settingsDialog">
+        <form id="settingsForm">
+            <div class="dialog-title"><h2>AI 设置</h2><button type="button" id="closeSettings" aria-label="关闭">×</button></div>
+            <label>AI 服务<select id="aiProvider"><option value="deepseek">DeepSeek</option><option value="openai">OpenAI</option></select></label>
+            <label>API 密钥<input id="aiApiKey" type="password" autocomplete="new-password" placeholder="留空表示保留当前密钥"></label>
+            <label>模型名称<input id="aiModel" maxlength="100" required></label>
+            <label>接口地址<input id="aiBaseUrl" type="url" required></label>
+            <p class="settings-note" id="keyStatus"></p>
+            <div class="dialog-actions"><button type="button" id="cancelSettings" class="button secondary">取消</button><button type="submit" class="button primary">安全保存</button></div>
+        </form>
+    </dialog>
+
+    <div id="toast" role="status"></div>
+    <script src="app.js"></script>
+</body>
+</html>

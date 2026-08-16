@@ -12,8 +12,8 @@ if (!accounts.length) {
 
 const profileDirs = new Set();
 for (const account of accounts) {
-    if (!account.id || !account.profileDir) {
-        throw new Error("每个账号都必须配置 id 和 profileDir");
+    if (!account.id || !account.name || !account.region || !account.profileDir) {
+        throw new Error("每个账号都必须配置 id、name、region 和 profileDir");
     }
     const profileDir = path.resolve(__dirname, account.profileDir);
     if (profileDirs.has(profileDir)) {
@@ -26,11 +26,14 @@ const children = new Map();
 let shuttingDown = false;
 
 function startAccount(account) {
-    const child = spawn(process.execPath, [path.resolve(__dirname, "test-chrome.js")], {
+    const label = `${account.name}/${account.region}`;
+    const child = spawn(process.execPath, [path.resolve(__dirname, "xhs-service.js")], {
         cwd: __dirname,
         env: {
             ...process.env,
             ACCOUNT_ID: account.id,
+            ACCOUNT_NAME: account.name,
+            ACCOUNT_REGION: account.region,
             XHS_PROFILE_DIR: account.profileDir,
             LOG_FILE: account.logFile || `data/${account.id}.log`,
             WECHAT_CARD_TYPE: account.wechatCardType || process.env.WECHAT_CARD_TYPE || "enterprise",
@@ -40,14 +43,14 @@ function startAccount(account) {
     });
 
     children.set(account.id, child);
-    const forward = stream => data => process.stdout.write(`[${account.id}] ${data}`);
+    const forward = stream => data => process.stdout.write(`[${label}] ${data}`);
     child.stdout.on("data", forward("stdout"));
     child.stderr.on("data", forward("stderr"));
     child.on("exit", (code, signal) => {
         children.delete(account.id);
-        console.log(`[${account.id}] EXIT code=${code ?? ""} signal=${signal ?? ""}`);
+        console.log(`[${label}] EXIT code=${code ?? ""} signal=${signal ?? ""}`);
         if (!shuttingDown) {
-            console.log(`[${account.id}] 5 秒后自动重启`);
+            console.log(`[${label}] 5 秒后自动重启`);
             setTimeout(() => startAccount(account), 5000);
         }
     });
@@ -64,5 +67,5 @@ function shutdown(signal) {
 process.on("SIGINT", () => shutdown("SIGINT"));
 process.on("SIGTERM", () => shutdown("SIGTERM"));
 
-console.log(`准备启动 ${accounts.length} 个账号：${accounts.map(account => account.id).join(", ")}`);
+console.log(`准备启动 ${accounts.length} 个账号：${accounts.map(account => `${account.name}（${account.region}）`).join(", ")}`);
 for (const account of accounts) startAccount(account);

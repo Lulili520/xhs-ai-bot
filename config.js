@@ -16,6 +16,11 @@ function numberFromEnv(name, fallback, { min = 0 } = {}) {
 }
 
 module.exports = Object.freeze({
+    account: Object.freeze({
+        id: process.env.ACCOUNT_ID || "main",
+        name: process.env.ACCOUNT_NAME || "主账号",
+        region: process.env.ACCOUNT_REGION || "地区待补充"
+    }),
     xhsUrl: process.env.XHS_URL || "https://pro.xiaohongshu.com/im/multiCustomerService",
     profileDir: path.resolve(__dirname, process.env.XHS_PROFILE_DIR || "xhs-profile"),
     headless: process.env.HEADLESS === "true",
