@@ -46,7 +46,7 @@ module.exports = Object.freeze({
     ai: Object.freeze({
         provider: aiProvider,
         apiKey: aiProvider === "deepseek"
-            ? process.env.DEEPSEEK_API_KEY || process.env.OPENAI_API_KEY || ""
+            ? process.env.DEEPSEEK_API_KEY || ""
             : process.env.OPENAI_API_KEY || "",
         baseUrl: (
             aiProvider === "deepseek"

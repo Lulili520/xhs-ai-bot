@@ -3,9 +3,11 @@ const assert = require("node:assert/strict");
 const fs = require("node:fs");
 const os = require("node:os");
 const path = require("node:path");
+const { EventEmitter } = require("node:events");
 const { AccountStore } = require("../desktop/account-store");
 const { parseEnv } = require("../desktop/env");
 const { SettingsStore } = require("../desktop/settings-store");
+const { RuntimeManager } = require("../desktop/runtime-manager");
 
 test("parses desktop environment configuration", () => {
     assert.deepEqual(parseEnv("# comment\nAI_PROVIDER=deepseek\nEMPTY=\nQUOTED=\"hello world\"\n"), {
@@ -88,10 +90,79 @@ test("encrypts desktop API settings and only exposes key presence", () => {
             provider: "deepseek",
             model: "model",
             baseUrl: "https://api.deepseek.com",
-            hasApiKey: true
+            hasApiKey: true,
+            providerKeyStatus: { deepseek: true, openai: false },
+            providerSettings: {
+                deepseek: { model: "model", baseUrl: "https://api.deepseek.com" },
+                openai: { model: "gpt-4o-mini", baseUrl: "https://api.openai.com/v1" }
+            }
         });
         assert.equal(store.toEnv().DEEPSEEK_API_KEY, "secret");
         assert.doesNotMatch(fs.readFileSync(store.filePath, "utf8"), /secret/);
+    } finally {
+        fs.rmSync(dataDir, { recursive: true, force: true });
+    }
+});
+
+test("keeps API credentials isolated by provider", () => {
+    const dataDir = fs.mkdtempSync(path.join(os.tmpdir(), "xhs-provider-keys-"));
+    const safeStorage = {
+        isEncryptionAvailable: () => true,
+        encryptString: value => Buffer.from(`encrypted:${value}`),
+        decryptString: value => value.toString().replace(/^encrypted:/, "")
+    };
+    try {
+        const store = new SettingsStore({ filePath: path.join(dataDir, "settings.json"), safeStorage });
+        store.save({ provider: "deepseek", apiKey: "deep-key" });
+        store.save({ provider: "openai", apiKey: "" });
+        assert.equal(store.toEnv().OPENAI_API_KEY, "");
+        store.save({ provider: "openai", apiKey: "open-key" });
+        store.save({ provider: "deepseek", apiKey: "" });
+        assert.equal(store.toEnv().DEEPSEEK_API_KEY, "deep-key");
+    } finally {
+        fs.rmSync(dataDir, { recursive: true, force: true });
+    }
+});
+
+test("recovers account data from the last valid backup", () => {
+    const dataDir = fs.mkdtempSync(path.join(os.tmpdir(), "xhs-account-backup-"));
+    try {
+        const filePath = path.join(dataDir, "accounts.json");
+        const store = new AccountStore({ filePath, dataDir });
+        store.add({ name: "账号甲", region: "上海" });
+        store.update(store.list()[0].id, { region: "杭州" });
+        fs.writeFileSync(filePath, "{broken");
+        assert.equal(store.list()[0].region, "上海");
+    } finally {
+        fs.rmSync(dataDir, { recursive: true, force: true });
+    }
+});
+
+test("reports worker lifecycle states from service output", async () => {
+    const dataDir = fs.mkdtempSync(path.join(os.tmpdir(), "xhs-runtime-"));
+    class FakeChild extends EventEmitter {
+        constructor() {
+            super();
+            this.stdout = new EventEmitter();
+            this.stderr = new EventEmitter();
+        }
+        kill(signal) { queueMicrotask(() => this.emit("exit", 0, signal)); }
+    }
+    try {
+        let child;
+        const runtime = new RuntimeManager({
+            workerPath: path.join(dataDir, "worker.js"), executablePath: "node", cwd: dataDir, env: {},
+            spawnFn: () => (child = new FakeChild())
+        });
+        const account = { id: "a1", name: "测试", region: "上海", profileDir: path.join(dataDir, "profile"), logFile: path.join(dataDir, "a1.log"), wechatCardType: "enterprise", wechatCardName: "" };
+        runtime.start(account);
+        assert.equal(runtime.status().a1, "starting");
+        child.stdout.emit("data", "LOGIN_OK\n");
+        assert.equal(runtime.status().a1, "initializing");
+        child.stdout.emit("data", "SERVICE_READY\n");
+        assert.equal(runtime.status().a1, "running");
+        await runtime.stop("a1");
+        assert.deepEqual(runtime.status(), {});
     } finally {
         fs.rmSync(dataDir, { recursive: true, force: true });
     }

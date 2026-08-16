@@ -37,16 +37,18 @@ function toast(message, error = false) {
 function render() {
     elements.total.textContent = accounts.length;
     elements.enabled.textContent = accounts.filter(account => account.enabled).length;
-    elements.running.textContent = Object.keys(statuses).length;
+    elements.running.textContent = Object.values(statuses).filter(state => state === "running").length;
     elements.empty.hidden = accounts.length > 0;
     elements.list.innerHTML = accounts.map(account => {
-        const running = statuses[account.id] === "running";
+        const state = statuses[account.id] || "stopped";
+        const active = !["stopped", "failed"].includes(state);
+        const stateLabels = { starting: "启动中", waiting_login: "等待登录", initializing: "初始化中", running: "运行中", restarting: "自动重启中", stopping: "停止中", failed: "启动失败", stopped: "已停止" };
         return `<article class="account-row" data-id="${escapeHtml(account.id)}">
             <div class="account-name"><strong>${escapeHtml(account.name)}</strong><span class="region">${escapeHtml(account.region)}</span><code>${escapeHtml(account.id)}</code></div>
             <div class="meta">${account.enabled ? "已启用" : "已停用"} · ${account.wechatCardType === "personal" ? "个人微信" : "企业微信"}</div>
-            <span class="badge ${running ? "running" : ""}">${running ? "运行中" : "已停止"}</span>
+            <span class="badge ${state === "running" ? "running" : ""}">${stateLabels[state] || state}</span>
             <div class="row-actions">
-                <button class="button small ${running ? "secondary" : "primary"}" data-action="${running ? "stop" : "start"}">${running ? "停止" : "启动"}</button>
+                <button class="button small ${active ? "secondary" : "primary"}" data-action="${active ? "stop" : "start"}">${active ? "停止" : state === "failed" ? "重试" : "启动"}</button>
                 <button class="button small secondary" data-action="edit">编辑</button>
                 <button class="button small secondary" data-action="remove">移除</button>
             </div>
@@ -145,13 +147,18 @@ elements.settingsForm.addEventListener("submit", event => {
         baseUrl: document.querySelector("#aiBaseUrl").value
     };
     elements.settingsDialog.close();
-    action(() => api.saveSettings(input), "AI 设置已安全保存；运行中的账号重启后生效");
+    action(() => api.saveSettings(input), "AI 设置已保存，运行中的账号已自动重启");
 });
 
 document.querySelector("#aiProvider").addEventListener("change", event => {
     const openai = event.target.value === "openai";
-    document.querySelector("#aiModel").value = openai ? "gpt-4o-mini" : "deepseek-v4-flash";
-    document.querySelector("#aiBaseUrl").value = openai ? "https://api.openai.com/v1" : "https://api.deepseek.com";
+    const provider = openai ? "openai" : "deepseek";
+    const saved = settings.providerSettings?.[provider];
+    document.querySelector("#aiModel").value = saved?.model || (openai ? "gpt-4o-mini" : "deepseek-v4-flash");
+    document.querySelector("#aiBaseUrl").value = saved?.baseUrl || (openai ? "https://api.openai.com/v1" : "https://api.deepseek.com");
+    document.querySelector("#keyStatus").textContent = settings.providerKeyStatus?.[provider]
+        ? `${openai ? "OpenAI" : "DeepSeek"} 密钥已加密保存，留空不会覆盖。`
+        : `${openai ? "OpenAI" : "DeepSeek"} 尚未配置密钥。`;
 });
 
 elements.removeForm.addEventListener("submit", event => {

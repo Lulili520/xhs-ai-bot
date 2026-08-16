@@ -11,6 +11,15 @@ let accountStore;
 let runtime;
 let settingsStore;
 let quitting = false;
+const hasSingleInstanceLock = app.requestSingleInstanceLock();
+
+if (!hasSingleInstanceLock) app.quit();
+else app.on("second-instance", () => {
+    if (!mainWindow) return;
+    if (mainWindow.isMinimized()) mainWindow.restore();
+    mainWindow.show();
+    mainWindow.focus();
+});
 
 function send(channel, payload) {
     if (mainWindow && !mainWindow.isDestroyed()) mainWindow.webContents.send(channel, payload);
@@ -27,8 +36,10 @@ function registerIpc() {
         return snapshot();
     });
     ipcMain.handle("account:update", async (_event, id, changes) => {
+        const wasActive = runtime.isActive(id);
         const account = accountStore.update(id, changes);
         if (!account.enabled) await runtime.stop(id);
+        else if (wasActive) await runtime.restart(account);
         return snapshot();
     });
     ipcMain.handle("account:remove", async (_event, id, deleteProfile) => {
@@ -58,9 +69,10 @@ function registerIpc() {
         await runtime.stopAll();
         return snapshot();
     });
-    ipcMain.handle("settings:save", (_event, input) => {
+    ipcMain.handle("settings:save", async (_event, input) => {
         settingsStore.save(input);
         runtime.setEnv(settingsStore.toEnv());
+        await runtime.restartAll(accountStore.list());
         return snapshot();
     });
 }
@@ -106,7 +118,7 @@ async function createApp() {
     await mainWindow.loadFile(path.join(__dirname, "renderer", "index.html"));
 }
 
-app.whenReady().then(createApp);
+if (hasSingleInstanceLock) app.whenReady().then(createApp);
 app.on("window-all-closed", () => app.quit());
 app.on("before-quit", event => {
     if (quitting || !runtime) return;

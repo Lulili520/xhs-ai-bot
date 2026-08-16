@@ -2,6 +2,7 @@ const { chromium } = require("playwright");
 const fs = require("fs");
 const path = require("path");
 const util = require("util");
+const crypto = require("crypto");
 const config = require("../core/config");
 const { buildReply } = require("../core/ai-reply");
 const { GoldPriceService } = require("../core/gold-price");
@@ -31,6 +32,7 @@ const startedAt = Date.now();
 const contactState = new Map();
 
 const processedMessages = new Set();
+const processedStateFile = process.env.PROCESSED_STATE_FILE || `${config.logFile}.processed.json`;
 
 // 同一次运行中，每位客户最多自动发送一次微信名片。
 const cardSentUsers = new Set();
@@ -42,6 +44,44 @@ let processingUser = "";
 let queueRunning = false;
 let serviceRunning = true;
 let shuttingDown = false;
+let consecutiveScanErrors = 0;
+
+try {
+    const saved = JSON.parse(fs.readFileSync(processedStateFile, "utf8"));
+    for (const key of saved.slice(-5000)) processedMessages.add(String(key));
+} catch (error) {
+    if (error.code !== "ENOENT") console.error("PROCESSED_STATE_LOAD_ERROR", error.message);
+}
+
+function rememberBounded(map, key, value, limit) {
+    map.delete(key);
+    map.set(key, value);
+    while (map.size > limit) map.delete(map.keys().next().value);
+}
+
+function rememberProcessed(key) {
+    const digest = crypto.createHash("sha256").update(String(key)).digest("hex");
+    processedMessages.delete(digest);
+    processedMessages.add(digest);
+    while (processedMessages.size > 5000) processedMessages.delete(processedMessages.values().next().value);
+    try {
+        fs.mkdirSync(path.dirname(processedStateFile), { recursive: true });
+        const tempPath = `${processedStateFile}.tmp`;
+        fs.writeFileSync(tempPath, JSON.stringify([...processedMessages]), "utf8");
+        fs.renameSync(tempPath, processedStateFile);
+    } catch (error) {
+        console.error("PROCESSED_STATE_WRITE_ERROR", error.message);
+    }
+}
+
+function wasProcessed(key) {
+    const digest = crypto.createHash("sha256").update(String(key)).digest("hex");
+    return processedMessages.has(digest);
+}
+
+function rememberContactState(key, value) {
+    rememberBounded(contactState, key, value, 5000);
+}
 
 
 // ============================================================
@@ -1147,7 +1187,7 @@ async function processUser(userId) {
      * 已处理
      */
     if (
-        processedMessages.has(
+        wasProcessed(
             key
         )
     ) {
@@ -1167,7 +1207,7 @@ async function processUser(userId) {
         message.timestamp
     ) {
 
-        processedMessages.add(
+        rememberProcessed(
             key
         );
 
@@ -1223,7 +1263,7 @@ async function processUser(userId) {
         "sent"
     ) {
 
-        processedMessages.add(
+        rememberProcessed(
             key
         );
 
@@ -1268,7 +1308,7 @@ async function processUser(userId) {
         "already_replied"
     ) {
 
-        processedMessages.add(
+        rememberProcessed(
             key
         );
 
@@ -1291,7 +1331,7 @@ async function processUser(userId) {
         "new_message"
     ) {
 
-        processedMessages.add(
+        rememberProcessed(
             key
         );
 
@@ -1507,7 +1547,7 @@ async function scanContacts() {
          */
         if (!old) {
 
-            contactState.set(
+            rememberContactState(
                 contact.userId,
                 {
                     signature:
@@ -1581,7 +1621,7 @@ async function scanContacts() {
         }
 
 
-        contactState.set(
+        rememberContactState(
             contact.userId,
             {
                 signature:
@@ -1653,7 +1693,7 @@ async function scanActiveChat() {
 
 
     if (
-        processedMessages.has(
+        wasProcessed(
             key
         )
     ) {
@@ -1693,7 +1733,7 @@ async function initBaseline() {
         of list
     ) {
 
-        contactState.set(
+        rememberContactState(
             contact.userId,
             {
                 signature:
@@ -1746,12 +1786,26 @@ async function main() {
              */
             await scanActiveChat();
 
+            consecutiveScanErrors = 0;
+
         } catch (e) {
+
+            consecutiveScanErrors += 1;
 
             console.error(
                 "SCAN_ERROR",
                 e.message
             );
+
+            if (consecutiveScanErrors >= 5 && page) {
+                log("PAGE_RECOVERY_START", e.message);
+                await page.reload({ waitUntil: "domcontentloaded", timeout: 30000 }).catch(() => {});
+                await contactRoot().waitFor({ state: "visible", timeout: 120000 });
+                contactState.clear();
+                await initBaseline();
+                consecutiveScanErrors = 0;
+                log("PAGE_RECOVERY_DONE");
+            }
         }
 
 

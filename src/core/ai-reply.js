@@ -110,7 +110,9 @@ function buildRequest(userId, text, businessContext, aiConfig = config) {
 function remember(userId, role, content) {
     const history = histories.get(userId) || [];
     history.push({ role, content });
+    histories.delete(userId);
     histories.set(userId, history.slice(-config.maxHistory));
+    while (histories.size > 500) histories.delete(histories.keys().next().value);
 }
 
 async function requestReply(userId, text, businessContext) {

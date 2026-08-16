@@ -2,6 +2,7 @@ node_modules/
 xhs-profile*/
 .env
 *.log
+*.processed.json
 data/reply-history-*.json
 data/cleaned-history.json
 data/knowledge-base.json

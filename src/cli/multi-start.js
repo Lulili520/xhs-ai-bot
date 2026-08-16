@@ -37,6 +37,7 @@ function startAccount(account) {
             ACCOUNT_REGION: account.region,
             XHS_PROFILE_DIR: path.resolve(projectRoot, account.profileDir),
             LOG_FILE: path.resolve(projectRoot, account.logFile || `data/${account.id}.log`),
+            PROCESSED_STATE_FILE: `${path.resolve(projectRoot, account.logFile || `data/${account.id}.log`)}.processed.json`,
             WECHAT_CARD_TYPE: account.wechatCardType || process.env.WECHAT_CARD_TYPE || "enterprise",
             WECHAT_CARD_NAME: account.wechatCardName || process.env.WECHAT_CARD_NAME || ""
         },

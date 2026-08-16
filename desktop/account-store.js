@@ -31,6 +31,7 @@ function normalizeAccount(account) {
 class AccountStore {
     constructor({ filePath, dataDir, seedFile }) {
         this.filePath = filePath;
+        this.backupPath = `${filePath}.bak`;
         this.dataDir = dataDir;
         this.seedFile = seedFile;
         fs.mkdirSync(path.dirname(filePath), { recursive: true });
@@ -39,7 +40,7 @@ class AccountStore {
 
     initialize() {
         if (fs.existsSync(this.filePath)) {
-            const raw = JSON.parse(fs.readFileSync(this.filePath, "utf8"));
+            const raw = this.readDocument();
             this.write((raw.accounts || []).map(normalizeAccount));
             return;
         }
@@ -62,12 +63,23 @@ class AccountStore {
     }
 
     list() {
-        const data = JSON.parse(fs.readFileSync(this.filePath, "utf8"));
+        const data = this.readDocument();
         return (data.accounts || []).map(normalizeAccount);
+    }
+
+    readDocument() {
+        try { return JSON.parse(fs.readFileSync(this.filePath, "utf8")); }
+        catch (error) {
+            if (!fs.existsSync(this.backupPath)) throw new Error(`账号配置损坏且无可用备份：${error.message}`);
+            const recovered = JSON.parse(fs.readFileSync(this.backupPath, "utf8"));
+            fs.copyFileSync(this.backupPath, this.filePath);
+            return recovered;
+        }
     }
 
     write(accounts) {
         const tempPath = `${this.filePath}.tmp`;
+        if (fs.existsSync(this.filePath)) fs.copyFileSync(this.filePath, this.backupPath);
         fs.writeFileSync(tempPath, `${JSON.stringify({ version: 2, accounts }, null, 2)}\n`, "utf8");
         fs.renameSync(tempPath, this.filePath);
     }
