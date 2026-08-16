@@ -49,6 +49,7 @@ function render() {
             <span class="badge ${state === "running" ? "running" : ""}">${stateLabels[state] || state}</span>
             <div class="row-actions">
                 <button class="button small ${active ? "secondary" : "primary"}" data-action="${active ? "stop" : "start"}">${active ? "停止" : state === "failed" ? "重试" : "启动"}</button>
+                ${state === "running" ? '<button class="button small secondary" data-action="test-card">测试名片</button>' : ""}
                 <button class="button small secondary" data-action="edit">编辑</button>
                 <button class="button small secondary" data-action="remove">移除</button>
             </div>
@@ -126,6 +127,7 @@ elements.list.addEventListener("click", event => {
     const account = accounts.find(item => item.id === id);
     if (!account) return;
     if (button.dataset.action === "start") action(() => api.startAccount(id), `正在启动 ${account.name}`);
+    if (button.dataset.action === "test-card") action(() => api.testWechatCard(id), `已请求 ${account.name} 在当前客户对话发送测试名片，请查看 Chrome 和运行日志`);
     if (button.dataset.action === "stop") action(() => api.stopAccount(id), `${account.name} 已停止`);
     if (button.dataset.action === "edit") openAccountDialog(account);
     if (button.dataset.action === "remove") {

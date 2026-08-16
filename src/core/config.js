@@ -28,6 +28,7 @@ module.exports = Object.freeze({
     scanIntervalMs: numberFromEnv("SCAN_INTERVAL_MS", 500, { min: 100 }),
     chatSettleMs: numberFromEnv("CHAT_SETTLE_MS", 300),
     replyDelayMs: numberFromEnv("REPLY_DELAY_MS", 1000),
+    wechatFollowupDelayMs: numberFromEnv("WECHAT_FOLLOWUP_DELAY_MS", 60000, { min: 10000 }),
     freshBeforeStartMs: numberFromEnv("FRESH_BEFORE_START_MS", 5000),
     logFile: path.resolve(projectRoot, process.env.LOG_FILE || "data/logs/service.log"),
     gold: Object.freeze({
@@ -71,6 +72,7 @@ module.exports = Object.freeze({
             "黄金首饰和金条不要擅自声称哪种价格更高或更低，不得说扣损耗、损耗费或折旧费。只能说回收主要看纯度和克重，不看品牌和款式，具体以实物检测为准。",
             "其他闲聊也要先自然回应，再顺着贵金属、行情、物品或图片把话题带回回收，最终服务于微信转化；不要一上来生硬推销。客户明确拒绝添加时，本轮停止催促，正常礼貌收尾。",
             "系统会在最终回复出现“微信”或“名片”时尝试发送微信名片。可以说“点击名片添加就行”，但不得声称客户已经添加，也不得在系统尚未确认时声称名片已经发送成功。",
+            "如果已经回答完客户问题但本轮没有发送微信名片，并且客户一分钟内没有继续提问，系统会另行发送一次微信跟进和名片；AI 本轮不要提前声称这条跟进已经发出，也不要为了触发跟进故意漏答客户问题。跟进参考话术：可以加我微信，涨价跌价都知道，每天都会报实时金价，点击名片添加即可。",
             "不得编造回购价格、检测结果、纯度、克重、门店地址、优惠、付款方式、到账时间、上门范围或其他未提供的信息。不要复述客户整句话，不使用“收到您的消息”“感谢咨询”“为您服务”等客服腔，不输出 Markdown、编号或表情符号。"
         ].join("\n")
     })

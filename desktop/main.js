@@ -69,6 +69,10 @@ function registerIpc() {
         await runtime.stopAll();
         return snapshot();
     });
+    ipcMain.handle("runtime:test-wechat-card", (_event, id) => {
+        runtime.testWechatCard(id);
+        return snapshot();
+    });
     ipcMain.handle("settings:save", async (_event, input) => {
         settingsStore.save(input);
         runtime.setEnv(settingsStore.toEnv());

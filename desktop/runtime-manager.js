@@ -68,7 +68,7 @@ class RuntimeManager extends EventEmitter {
                     PROCESSED_STATE_FILE: `${account.logFile}.processed.json`,
                     WECHAT_CARD_TYPE: account.wechatCardType, WECHAT_CARD_NAME: account.wechatCardName
                 },
-                stdio: ["ignore", "pipe", "pipe"], windowsHide: true
+                stdio: ["ignore", "pipe", "pipe", "ipc"], windowsHide: true
             });
         } catch (error) {
             this.handleFailure(id, error.message);
@@ -88,8 +88,25 @@ class RuntimeManager extends EventEmitter {
         };
         child.stdout.on("data", forward("info"));
         child.stderr.on("data", forward("error"));
+        child.on("message", message => {
+            if (!message || message.type !== "wechat-card-test-result") return;
+            this.emit("log", {
+                accountId: id,
+                level: message.result?.status === "sent" ? "info" : "error",
+                message: `CARD_TEST ${JSON.stringify(message.result || {})}`,
+                time: new Date().toISOString()
+            });
+        });
         child.once("error", error => this.handleFailure(id, error.message, child));
         child.once("exit", (code, signal) => this.handleExit(id, code, signal, child));
+    }
+
+    testWechatCard(id) {
+        const entry = this.entries.get(id);
+        if (!entry || entry.state !== "running" || !entry.child?.connected) {
+            throw new Error("请先启动账号，等待状态变为“运行中”，并在 Chrome 中打开一个客户对话");
+        }
+        entry.child.send({ type: "test-wechat-card" });
     }
 
     handleFailure(id, message, child = null) {

@@ -145,7 +145,10 @@ test("reports worker lifecycle states from service output", async () => {
             super();
             this.stdout = new EventEmitter();
             this.stderr = new EventEmitter();
+            this.connected = true;
+            this.sent = [];
         }
+        send(message) { this.sent.push(message); }
         kill(signal) { queueMicrotask(() => this.emit("exit", 0, signal)); }
     }
     try {
@@ -161,6 +164,8 @@ test("reports worker lifecycle states from service output", async () => {
         assert.equal(runtime.status().a1, "initializing");
         child.stdout.emit("data", "SERVICE_READY\n");
         assert.equal(runtime.status().a1, "running");
+        runtime.testWechatCard("a1");
+        assert.deepEqual(child.sent, [{ type: "test-wechat-card" }]);
         await runtime.stop("a1");
         assert.deepEqual(runtime.status(), {});
     } finally {

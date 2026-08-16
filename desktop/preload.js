@@ -8,6 +8,7 @@ contextBridge.exposeInMainWorld("customerService", {
     startAccount: id => ipcRenderer.invoke("runtime:start", id),
     stopAccount: id => ipcRenderer.invoke("runtime:stop", id),
     startAll: () => ipcRenderer.invoke("runtime:start-all"),
+    testWechatCard: id => ipcRenderer.invoke("runtime:test-wechat-card", id),
     stopAll: () => ipcRenderer.invoke("runtime:stop-all"),
     saveSettings: input => ipcRenderer.invoke("settings:save", input),
     onStatus: callback => ipcRenderer.on("runtime:status", (_event, value) => callback(value)),

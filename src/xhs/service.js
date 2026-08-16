@@ -16,6 +16,7 @@ const PROFILE_DIR = config.profileDir;
 const SCAN_INTERVAL = config.scanIntervalMs;
 const CHAT_SETTLE_MS = config.chatSettleMs;
 const REPLY_DELAY_MS = config.replyDelayMs;
+const WECHAT_FOLLOWUP_DELAY_MS = config.wechatFollowupDelayMs;
 const FRESH_BEFORE_START_MS = config.freshBeforeStartMs;
 
 
@@ -36,6 +37,9 @@ const processedStateFile = process.env.PROCESSED_STATE_FILE || `${config.logFile
 
 // 同一次运行中，每位客户最多自动发送一次微信名片。
 const cardSentUsers = new Set();
+const pendingWechatFollowups = new Map();
+const wechatFollowupSentUsers = new Set();
+const WECHAT_FOLLOWUP_TEXT = "可以加我微信，涨价跌价都知道，每天都会报实时金价，点击名片添加即可。";
 
 const queue = [];
 const queuedUsers = new Set();
@@ -991,9 +995,9 @@ async function sendReply(
 }
 
 
-async function sendWechatCard(userId) {
+async function sendWechatCard(userId, { force = false } = {}) {
 
-    if (cardSentUsers.has(userId)) {
+    if (!force && cardSentUsers.has(userId)) {
         return { status: "already_sent" };
     }
 
@@ -1012,12 +1016,23 @@ async function sendWechatCard(userId) {
             return style.display !== "none" && style.visibility !== "hidden" && rect.width > 0 && rect.height > 0;
         };
 
-        const panels = [...document.querySelectorAll(".business-card")].filter(isDisplayed);
+        const panels = [...document.querySelectorAll([
+            ".business-card",
+            '[class*="business-card"]',
+            '[class*="businessCard"]',
+            '.ant-popover:has(button)',
+            '[role="dialog"]'
+        ].join(","))].filter(isDisplayed);
         for (const panel of panels) {
-            const cards = [...panel.querySelectorAll(".card")].map(card => ({
+            const cardNodes = [...panel.querySelectorAll(".card, [class*=\"card-box\"], [class*=\"cardItem\"]")];
+            const cards = [...new Set(cardNodes.map(node => node.closest(".card") || node))].map(card => ({
                 card,
-                title: card.querySelector(".card-box__content-title")?.getAttribute("title") || "",
-                description: card.querySelector(".card-box__content-desc")?.textContent?.trim() || ""
+                title: card.querySelector(".card-box__content-title, [class*=\"content-title\"], [class*=\"cardTitle\"]")?.getAttribute("title")
+                    || card.querySelector(".card-box__content-title, [class*=\"content-title\"], [class*=\"cardTitle\"]")?.textContent?.trim()
+                    || "",
+                description: card.querySelector(".card-box__content-desc, [class*=\"content-desc\"], [class*=\"cardDesc\"]")?.textContent?.trim()
+                    || card.textContent?.trim()
+                    || ""
             }));
             const isEnterprise = item => item.title.includes("企微") || item.description.startsWith("@");
             const typedCards = cards.filter(item =>
@@ -1030,9 +1045,11 @@ async function sendWechatCard(userId) {
                 : null;
             const selected = exact || (typedCards.length === 1 ? typedCards[0] : null);
             if (!selected) {
+                const panelText = panel.textContent?.replace(/\s+/g, " ").trim().slice(0, 300) || "";
                 return {
                     status: typedCards.length > 1 ? "card_name_ambiguous" : "panel_or_card_missing",
-                    availableCards: cards.map(item => item.title).filter(Boolean)
+                    availableCards: cards.map(item => item.title || item.description.slice(0, 80)).filter(Boolean),
+                    panelText
                 };
             }
             const button = [...selected.card.querySelectorAll("button")]
@@ -1042,13 +1059,52 @@ async function sendWechatCard(userId) {
             button.click();
             return { status: "clicked", cardName: selected.title };
         }
-        return { status: "panel_or_card_missing", availableCards: [] };
+
+        // 新版专业号平台把“留资卡 / 名片 / 落地页”放在固定右侧栏，
+        // 卡片本身不再使用旧版 .business-card 容器。
+        const sendButtons = [...document.querySelectorAll("button")]
+            .filter(node => isDisplayed(node) && node.textContent?.trim() === "发送" && !node.closest(".reply-box"));
+        const sidebarCards = sendButtons.map(button => {
+            let card = button.parentElement;
+            for (let depth = 0; card?.parentElement && depth < 5; depth += 1) {
+                const text = card.textContent?.replace(/\s+/g, " ").trim() || "";
+                if (text.length >= 4 && text.length <= 500 && /微信|企微|号码|@/.test(text)) break;
+                card = card.parentElement;
+            }
+            const text = card?.textContent?.replace(/\s+/g, " ").trim() || "";
+            return { card, button, title: text.split(/发送/)[0].trim(), description: text };
+        }).filter(item => item.card && /微信|企微|号码|@/.test(item.description));
+        const isEnterpriseSidebar = item => /企微|企业微信|@/.test(item.description);
+        const typedSidebarCards = sidebarCards.filter(item =>
+            cardConfig.type === "enterprise"
+                ? isEnterpriseSidebar(item)
+                : !isEnterpriseSidebar(item) && /微信|号码/.test(item.description)
+        );
+        const exactSidebar = cardConfig.name
+            ? typedSidebarCards.find(item => item.title.includes(cardConfig.name) || item.description.includes(cardConfig.name))
+            : null;
+        const selectedSidebar = exactSidebar || (typedSidebarCards.length === 1 ? typedSidebarCards[0] : null);
+        if (selectedSidebar) {
+            if (selectedSidebar.button.disabled) return { status: "button_disabled", cardName: selectedSidebar.title };
+            selectedSidebar.button.click();
+            return { status: "clicked", cardName: selectedSidebar.title };
+        }
+        return {
+            status: "panel_or_card_missing",
+            availableCards: [],
+            visibleText: [...document.querySelectorAll('.reply-box [title], .reply-box [aria-label], .reply-box button')]
+                .filter(isDisplayed)
+                .map(node => node.getAttribute("title") || node.getAttribute("aria-label") || node.textContent?.trim())
+                .filter(Boolean)
+                .slice(0, 30)
+        };
     }, {
         type: config.wechatCard.type,
         name: config.wechatCard.name
     });
 
     let clickResult = await clickCardButton();
+    let toolDiagnostics = [];
 
     if (clickResult.status === "panel_or_card_missing") {
         const tools = page.locator(
@@ -1058,17 +1114,45 @@ async function sendWechatCard(userId) {
             '.reply-box:visible .reply-tools .tool-item:visible[title*="获客"]',
             '.reply-box:visible .reply-tools .tool-item:visible[aria-label*="获客"]',
             '.reply-box:visible .reply-tools .tool-item:visible[title*="名片"]',
-            '.reply-box:visible .reply-tools .tool-item:visible[aria-label*="名片"]'
+            '.reply-box:visible .reply-tools .tool-item:visible[aria-label*="名片"]',
+            '.reply-box:visible [title*="微信"]',
+            '.reply-box:visible [aria-label*="微信"]',
+            '.reply-box:visible button:has-text("获客")',
+            '.reply-box:visible button:has-text("名片")'
         ].join(",")).first();
         const toolCount = await tools.count();
         const targetTool = await namedTool.count() ? namedTool : toolCount >= 6 ? tools.nth(5) : null;
-        if (!targetTool) return { status: "card_tool_missing" };
+        toolDiagnostics = await tools.evaluateAll(nodes => nodes.map((node, index) => ({
+            index,
+            text: node.textContent?.replace(/\s+/g, " ").trim().slice(0, 80) || "",
+            title: node.getAttribute("title") || "",
+            ariaLabel: node.getAttribute("aria-label") || "",
+            className: String(node.className || ""),
+            html: node.innerHTML.replace(/\s+/g, " ").slice(0, 500)
+        })));
+        if (!targetTool) return { status: "card_tool_missing", toolDiagnostics };
 
         try {
             // 优先按可访问名称定位“获客工具/名片”，旧页面才回退到第 6 项。
             await targetTool.click({ timeout: 5000 });
         } catch (error) {
-            return { status: "card_tool_click_failed", error: error.message };
+            return { status: "card_tool_click_failed", error: error.message, toolDiagnostics };
+        }
+
+        // 2026 版页面打开获客工具后默认显示“留资卡”，必须主动切到“名片”。
+        const cardTab = page.locator([
+            '[role="tab"]:visible',
+            '.ant-tabs-tab:visible',
+            'div:visible',
+            'span:visible'
+        ].join(",")).filter({ hasText: /^名片$/ }).last();
+        if (await cardTab.count()) {
+            try {
+                await cardTab.click({ timeout: 3000 });
+                await sleep(300);
+            } catch (error) {
+                return { status: "card_tab_click_failed", error: error.message, toolDiagnostics };
+            }
         }
 
         const panelDeadline = Date.now() + 5000;
@@ -1085,7 +1169,10 @@ async function sendWechatCard(userId) {
     if (clickResult.status !== "clicked") {
         return {
             status: clickResult.status === "panel_or_card_missing" ? "configured_card_missing" : clickResult.status,
-            availableCards: clickResult.availableCards || []
+            availableCards: clickResult.availableCards || [],
+            panelText: clickResult.panelText || "",
+            visibleText: clickResult.visibleText || [],
+            toolDiagnostics
         };
     }
 
@@ -1110,6 +1197,111 @@ async function sendWechatCard(userId) {
     }
 
     return { status: "not_confirmed" };
+}
+
+function scheduleWechatFollowup(userId, message, outgoing) {
+    if (!config.wechatCard.enabled || cardSentUsers.has(userId) || wechatFollowupSentUsers.has(userId)) return;
+    pendingWechatFollowups.set(userId, {
+        dueAt: Date.now() + WECHAT_FOLLOWUP_DELAY_MS,
+        message: { ...message },
+        expectedOutgoingTime: outgoing?.timestamp || 0
+    });
+    log("WECHAT_FOLLOWUP_SCHEDULED", { userId, delayMs: WECHAT_FOLLOWUP_DELAY_MS });
+}
+
+async function sendWechatFollowupText(userId, pending) {
+    if (!await openUser(userId)) return { status: "open_failed" };
+    const originalKey = messageKey(userId, pending.message);
+    let state = await getChatState();
+    if (!state.latestIncoming || messageKey(userId, state.latestIncoming) !== originalKey) return { status: "new_message" };
+    if (state.latestOutgoingTime > pending.expectedOutgoingTime) return { status: "new_outgoing" };
+
+    const input = page.locator("textarea.reply-textarea:visible");
+    if (!await input.count()) return { status: "input_missing" };
+    await input.fill(WECHAT_FOLLOWUP_TEXT);
+
+    state = await getChatState();
+    if (!state.latestIncoming || messageKey(userId, state.latestIncoming) !== originalKey) {
+        await input.fill("");
+        return { status: "new_message" };
+    }
+    if (state.latestOutgoingTime > pending.expectedOutgoingTime) {
+        await input.fill("");
+        return { status: "new_outgoing" };
+    }
+
+    const button = page.locator(".base-reply-box .reply-bottom-bar button:visible");
+    if (!await button.count()) return { status: "button_missing" };
+    await button.click({ timeout: 5000 });
+
+    const deadline = Date.now() + 5000;
+    while (Date.now() < deadline) {
+        if (await getActiveUserId() !== userId) return { status: "wrong_user" };
+        const current = await getChatState();
+        if (current.latestOutgoing
+            && current.latestOutgoing.timestamp > pending.expectedOutgoingTime
+            && normalizeText(current.latestOutgoing.text) === normalizeText(WECHAT_FOLLOWUP_TEXT)) {
+            return { status: "sent", outgoing: current.latestOutgoing };
+        }
+        await sleep(100);
+    }
+    return { status: "not_confirmed" };
+}
+
+async function processDueWechatFollowup() {
+    if (queueRunning || processingUser) return;
+    const due = [...pendingWechatFollowups.entries()]
+        .find(([, pending]) => pending.dueAt <= Date.now());
+    if (!due) return;
+    const [userId, pending] = due;
+    pendingWechatFollowups.delete(userId);
+    if (cardSentUsers.has(userId) || wechatFollowupSentUsers.has(userId)) return;
+
+    let textResult;
+    try {
+        textResult = await sendWechatFollowupText(userId, pending);
+    } catch (error) {
+        textResult = { status: "send_failed", error: error.message };
+    }
+    if (textResult.status !== "sent") {
+        log("WECHAT_FOLLOWUP_CANCELLED", { userId, status: textResult.status, error: textResult.error || "" });
+        return;
+    }
+
+    wechatFollowupSentUsers.add(userId);
+    log("WECHAT_FOLLOWUP_SENT", { userId, reply: WECHAT_FOLLOWUP_TEXT });
+    const cardResult = await sendWechatCard(userId);
+    log(cardResult.status === "sent" || cardResult.status === "already_sent" ? "CARD_SEND_OK" : "CARD_SEND_FAILED", {
+        userId,
+        source: "silent_followup",
+        status: cardResult.status,
+        cardName: cardResult.cardName || "",
+        availableCards: cardResult.availableCards || [],
+        panelText: cardResult.panelText || "",
+        visibleText: cardResult.visibleText || [],
+        error: cardResult.error || ""
+    });
+}
+
+if (typeof process.send === "function") {
+    process.on("message", async message => {
+        if (!message || message.type !== "test-wechat-card") return;
+        let result;
+        try {
+            const userId = await getActiveUserId();
+            result = userId
+                ? await sendWechatCard(userId, { force: true })
+                : { status: "no_active_conversation" };
+            if (result.status !== "sent") {
+                const screenshotPath = path.join(path.dirname(config.logFile), `${config.account.id}-card-test.png`);
+                await page.screenshot({ path: screenshotPath, fullPage: false });
+                result.screenshotPath = screenshotPath;
+            }
+        } catch (error) {
+            result = { status: "test_failed", error: error.message };
+        }
+        process.send?.({ type: "wechat-card-test-result", result });
+    });
 }
 
 
@@ -1282,8 +1474,10 @@ async function processUser(userId) {
             }
         );
 
+        let cardWasSent = false;
         if (shouldSendWechatCard(reply)) {
             const cardResult = await sendWechatCard(userId);
+            cardWasSent = cardResult.status === "sent" || cardResult.status === "already_sent";
             log(
                 cardResult.status === "sent" || cardResult.status === "already_sent"
                     ? "CARD_SEND_OK"
@@ -1293,10 +1487,13 @@ async function processUser(userId) {
                     status: cardResult.status,
                     cardName: cardResult.cardName || "",
                     availableCards: cardResult.availableCards || [],
+                    panelText: cardResult.panelText || "",
+                    visibleText: cardResult.visibleText || [],
                     error: cardResult.error || ""
                 }
             );
         }
+        if (!cardWasSent) scheduleWechatFollowup(userId, message, result.outgoing);
 
 
         return {
@@ -1379,6 +1576,7 @@ function enqueue(userId) {
     if (!userId) {
         return;
     }
+    pendingWechatFollowups.delete(userId);
 
 
     /*
@@ -1792,6 +1990,8 @@ async function main() {
              */
             await scanActiveChat();
 
+            await processDueWechatFollowup();
+
             consecutiveScanErrors = 0;
 
         } catch (e) {
@@ -1825,6 +2025,7 @@ async function shutdown(signal) {
     if (shuttingDown) return;
     shuttingDown = true;
     serviceRunning = false;
+    pendingWechatFollowups.clear();
     log("SERVICE_STOP", signal);
     await goldPriceService.stop();
     if (browserContext) await browserContext.close().catch(() => {});
