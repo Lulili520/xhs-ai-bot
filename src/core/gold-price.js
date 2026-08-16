@@ -23,7 +23,7 @@ function normalizeRows(rows) {
 function isGoldQuestion(text) {
     const value = String(text || "").replace(/\s+/g, "");
     return (
-        /(金价|黄金|足金|回收价|回购|多少钱一克|一克多少钱|999|9999|au99|金条|金饰|克价)/i.test(value)
+        /(金价|黄金|足金|铂金|钯金|白银|银饰|18k|22k|pt\d*|pd\d*|回收价|回购|多少钱一克|一克多少钱|999|9999|au99|金条|金饰|克价)/i.test(value)
         ||
         /(?:今天|今日|现在|目前).{0,6}(?:什么价|多少价|价格|价钱)/.test(value)
         ||
@@ -31,6 +31,20 @@ function isGoldQuestion(text) {
         ||
         /(?:什么价|多少价|价格多少|价钱多少)(?:了|啊|呀|呢)?$/.test(value)
     );
+}
+
+function requestedProduct(text) {
+    const value = String(text || "").replace(/\s+/g, "").toLowerCase();
+    const products = [
+        { name: "铂金", query: /铂金|pt\d*/i, row: /铂金|pt\d*/i },
+        { name: "钯金", query: /钯金|pd\d*/i, row: /钯金|pd\d*/i },
+        { name: "白银", query: /白银|银饰|足银|999银/i, row: /白银|银饰|足银|999银/i },
+        { name: "22K金", query: /22k金?/i, row: /22k金?/i },
+        { name: "18K金", query: /18k金?/i, row: /18k金?/i },
+        { name: "足金999", query: /足金999|9999|au99/i, row: /足金999|9999|au99|黄金/i },
+        { name: config.productName, query: /黄金|金价|金条|金饰|足金/i, row: new RegExp(config.productName, "i") }
+    ];
+    return products.find(product => product.query.test(value)) || products.at(-1);
 }
 
 class GoldPriceService {
@@ -57,9 +71,7 @@ class GoldPriceService {
                 const rows = await this.page.locator("table tr").evaluateAll(nodes =>
                     nodes.map(row => [...row.querySelectorAll("th,td")].map(cell => cell.textContent || ""))
                 );
-                const prices = normalizeRows(rows).filter(item =>
-                    item.name.replace(/\s+/g, "") === config.productName.replace(/\s+/g, "")
-                );
+                const prices = normalizeRows(rows);
                 if (prices.length) {
                     const changed = JSON.stringify(prices) !== JSON.stringify(this.snapshot?.prices);
                     this.snapshot = { prices, fetchedAt: Date.now() };
@@ -83,7 +95,11 @@ class GoldPriceService {
         if (!this.snapshot || Date.now() - this.snapshot.fetchedAt > config.staleAfterMs) {
             return "实时回收金价当前无法可靠获取。请明确告知客户暂时无法报价，并建议稍后再问或转人工；禁止引用历史价格。";
         }
-        const item = this.snapshot.prices[0];
+        const product = requestedProduct(text);
+        const item = this.snapshot.prices.find(candidate => product.row.test(candidate.name.replace(/\s+/g, "")));
+        if (!item) {
+            return `系统没有获取到${product.name}对应的可靠实时回购价。不得用其他品类价格代替；请说明需要结合具体物品确认，并引导客户添加微信发送图片、纯度或成色信息。`;
+        }
         return [
             `店铺实时回购报价（采集时间：${new Date(this.snapshot.fetchedAt).toLocaleString("zh-CN")}）：`,
             `${item.name}：${item.price}元/克`,
@@ -92,4 +108,4 @@ class GoldPriceService {
     }
 }
 
-module.exports = { GoldPriceService, isGoldQuestion, normalizeRows };
+module.exports = { GoldPriceService, isGoldQuestion, normalizeRows, requestedProduct };

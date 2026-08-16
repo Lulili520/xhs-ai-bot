@@ -1054,13 +1054,19 @@ async function sendWechatCard(userId) {
         const tools = page.locator(
             ".reply-box:visible .reply-tools .tool-item:visible"
         );
-        if (await tools.count() < 6) {
-            return { status: "card_tool_missing" };
-        }
+        const namedTool = page.locator([
+            '.reply-box:visible .reply-tools .tool-item:visible[title*="获客"]',
+            '.reply-box:visible .reply-tools .tool-item:visible[aria-label*="获客"]',
+            '.reply-box:visible .reply-tools .tool-item:visible[title*="名片"]',
+            '.reply-box:visible .reply-tools .tool-item:visible[aria-label*="名片"]'
+        ].join(",")).first();
+        const toolCount = await tools.count();
+        const targetTool = await namedTool.count() ? namedTool : toolCount >= 6 ? tools.nth(5) : null;
+        if (!targetTool) return { status: "card_tool_missing" };
 
         try {
-            // 小红书当前工具栏第 6 项为“获客工具”；点击后再以目标卡片名称校验。
-            await tools.nth(5).click({ timeout: 5000 });
+            // 优先按可访问名称定位“获客工具/名片”，旧页面才回退到第 6 项。
+            await targetTool.click({ timeout: 5000 });
         } catch (error) {
             return { status: "card_tool_click_failed", error: error.message };
         }

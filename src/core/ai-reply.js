@@ -26,20 +26,29 @@ function enforceBusinessRules(reply, businessContext = "") {
     return text;
 }
 
-function fallbackReply(text, businessContext = "") {
+function isStrongSellIntent(text) {
+    return /(想卖|要卖|卖掉|出售|出手|准备卖|现在卖|今天卖|怎么卖|怎么交易|上门回收|有\s*\d+(?:\.\d+)?\s*克|大概\s*\d+(?:\.\d+)?\s*克|加微信|联系方式)/i.test(String(text || ""));
+}
+
+function fallbackReply(text, businessContext = "", { guideWechat = isStrongSellIntent(text) } = {}) {
+    if (businessContext.includes("没有获取到")) {
+        return "这个品类要结合具体物品和成色确认，我不拿别的价格替代。您加个微信，点击名片把图片发我看看。";
+    }
     if (businessContext.includes("无法可靠获取")) {
-        return "抱歉，实时回收金价目前暂时无法获取，为避免报错价格，请稍后再问或联系人工客服确认。";
+        return "实时回购价这会儿没刷新出来，我不乱报数字。您可以加个微信，点击名片添加就行，价格更新后我跟您说。";
     }
     if (businessContext && !businessContext.includes("无法可靠获取")) {
         const prices = businessContext.split("\n").filter(line => /元\/克/.test(line));
         if (prices.length) {
-            return `当前回收参考价：${prices.join("；")}。价格随行情变化，最终以验金时的实时价格、纯度和克重为准。`;
+            return `当前回购价是${prices.join("；")}。具体还要看实物纯度和克重，方便的话加个微信，点击名片发图片我看看。`;
         }
     }
-    const preview = String(text || "").replace(/\s+/g, " ").trim().slice(0, 60);
-    return preview
-        ? `收到，您是想了解“${preview}”对吗？可以加微信详细沟通，我给您发名片。`
-        : "收到，请问您想咨询黄金回收的哪方面？可以加微信详细沟通。";
+    if (guideWechat) {
+        return "观望或者出售都可以加个微信，涨价跌价都能知道，每天发实时金价，点击名片添加就行。";
+    }
+    return /图|照片|图片/.test(String(text || ""))
+        ? "可以的，您方便发张物品图片看看吗？"
+        : "您这边具体是什么物品呀？";
 }
 
 function getOutputText(data) {
@@ -64,14 +73,22 @@ function buildInstructions(businessContext, userText = "") {
     ].filter(Boolean).join("\n\n");
 }
 
-function buildGoldPriceReply(price, variantIndex = Math.floor(Math.random() * 5)) {
-    const templates = [
-        `当前黄金回购价是${price}。您这边大概有多少克呀？方便的话可以加个微信细聊。`,
-        `今天黄金回购是${price}。您的是首饰还是金条？我给您发个微信名片。`,
-        `黄金现在回购${price}。方便的话加个微信，可以把实物情况发我看看。`,
-        `目前黄金回购价是${price}。您可以加微信详聊，我给您发个名片。`,
-        `现在黄金回购是${price}。您知道大概的纯度和克重吗？咱们可以加微信聊。`
+function buildGoldPriceReply(price, variantIndex = Math.floor(Math.random() * 5), productName = "黄金", guideWechat = false) {
+    const inquiryTemplates = [
+        `现在${productName}回购是${price}，您这边具体是什么物品呀？`,
+        `今天${productName}回购价是${price}，您这个大概有多少克呀？`,
+        `${productName}目前回购是${price}，方便发张物品图片看看吗？`,
+        `现在${productName}回购价${price}，您知道大概纯度吗？`,
+        `${productName}今天回购是${price}，您的是首饰还是其他物品呀？`
     ];
+    const wechatTemplates = [
+        `${productName}现在回购是${price}。观望或者出售都可以加个微信，涨跌都能知道，点击名片添加就行。`,
+        `今天${productName}回购价是${price}，您要出手的话直接加微信，点击名片把物品图片发我看看。`,
+        `${productName}目前回购是${price}。可以加个微信，每天的实时金价都能看到，点击名片添加就行。`,
+        `现在${productName}回购价${price}，具体看实物纯度和克重，您加微信把图片发我就行。`,
+        `${productName}今天回购是${price}，方便的话直接加微信，点击名片添加就行。`
+    ];
+    const templates = guideWechat ? wechatTemplates : inquiryTemplates;
     return templates[Math.abs(variantIndex) % templates.length];
 }
 
@@ -150,14 +167,26 @@ async function buildReply(userId, text, businessContext = "") {
     const goldPriceLine = businessContext.split("\n").find(line => /元\/克/.test(line));
     if (goldPriceLine) {
         const price = goldPriceLine.replace(/^.*?：/, "");
+        const productName = goldPriceLine.split(/[：:]/)[0].trim() || "黄金";
+        const history = histories.get(userId) || [];
+        const customerTurns = history.filter(item => item.role === "user").length + 1;
+        const guideWechat = isStrongSellIntent(text) || customerTurns >= 3;
+        const reply = buildGoldPriceReply(price, Math.floor(Math.random() * 5), productName, guideWechat);
+        remember(userId, "user", text);
+        remember(userId, "assistant", reply);
         return {
-            reply: buildGoldPriceReply(price),
+            reply,
             source: "gold_price"
         };
     }
 
     if (!config.apiKey) {
-        return { reply: fallbackReply(text, businessContext), source: "fallback_no_api_key" };
+        const history = histories.get(userId) || [];
+        const guideWechat = isStrongSellIntent(text) || history.filter(item => item.role === "user").length >= 2;
+        const reply = fallbackReply(text, businessContext, { guideWechat });
+        remember(userId, "user", text);
+        remember(userId, "assistant", reply);
+        return { reply, source: "fallback_no_api_key" };
     }
 
     let lastError;
@@ -181,4 +210,4 @@ async function buildReply(userId, text, businessContext = "") {
     };
 }
 
-module.exports = { buildGoldPriceReply, buildReply, buildRequest, cleanReply, enforceBusinessRules, fallbackReply, getOutputText };
+module.exports = { buildGoldPriceReply, buildReply, buildRequest, cleanReply, enforceBusinessRules, fallbackReply, getOutputText, isStrongSellIntent };

@@ -1,7 +1,7 @@
 const test = require("node:test");
 const assert = require("node:assert/strict");
-const { buildGoldPriceReply, buildRequest, cleanReply, fallbackReply, getOutputText } = require("../src/core/ai-reply");
-const { isGoldQuestion, normalizeRows } = require("../src/core/gold-price");
+const { buildGoldPriceReply, buildRequest, cleanReply, fallbackReply, getOutputText, isStrongSellIntent } = require("../src/core/ai-reply");
+const { isGoldQuestion, normalizeRows, requestedProduct } = require("../src/core/gold-price");
 const { enforceBusinessRules } = require("../src/core/ai-reply");
 const { retrieveKnowledge } = require("../src/core/knowledge-base");
 
@@ -32,7 +32,7 @@ test("cleans and bounds model output", () => {
 test("fallback does not claim an action was completed", () => {
     const reply = fallbackReply("帮我退款");
     assert.doesNotMatch(reply, /已经退款/);
-    assert.match(reply, /加微信/);
+    assert.match(reply, /什么物品|图片/);
 });
 
 test("normalizes paired gold quote table cells", () => {
@@ -57,11 +57,17 @@ test("extracts gold buyback after a category column", () => {
     ]), [{ name: "黄金", price: 945.5 }]);
 });
 
-test("gold quote uses the fixed buyback wording and WeChat guide", async () => {
+test("gold quote answers first and delays WeChat guidance for weak intent", async () => {
     const { buildReply } = require("../src/core/ai-reply");
-    const result = await buildReply("u2", "黄金多少钱", "店铺实时回购报价：\n黄金：945.5元/克");
-    assert.match(result.reply, /945\.5元\/克/);
-    assert.equal(result.source, "gold_price");
+    const context = "店铺实时回购报价：\n黄金：945.5元/克";
+    const first = await buildReply("staged-user", "黄金多少钱", context);
+    const second = await buildReply("staged-user", "先了解一下", context);
+    const third = await buildReply("staged-user", "最近会涨吗", context);
+    assert.match(first.reply, /945\.5元\/克/);
+    assert.doesNotMatch(first.reply, /微信|名片/);
+    assert.doesNotMatch(second.reply, /微信|名片/);
+    assert.match(third.reply, /微信|名片/);
+    assert.equal(first.source, "gold_price");
 });
 
 test("gold quote wording varies without changing the price", () => {
@@ -70,9 +76,21 @@ test("gold quote wording varies without changing the price", () => {
     assert.equal(replies.every(reply => reply.includes("945.5元/克")), true);
 });
 
+test("strong selling intent immediately guides WeChat", () => {
+    assert.equal(isStrongSellIntent("我有30克黄金想卖掉"), true);
+    assert.equal(isStrongSellIntent("先看看行情"), false);
+    assert.match(fallbackReply("我今天就想卖", ""), /微信|名片/);
+});
+
+test("recognizes specific precious metal products without substituting gold", () => {
+    assert.equal(requestedProduct("铂金pt950多少钱").name, "铂金");
+    assert.equal(requestedProduct("18k金回收价").name, "18K金");
+    assert.equal(requestedProduct("白银现在什么价").name, "白银");
+});
+
 test("retrieves only relevant historical knowledge", () => {
-    assert.match(retrieveKnowledge("你们实体店在哪里"), /宝山/);
-    assert.match(retrieveKnowledge("可以上门回收吗"), /上门回收/);
+    assert.match(retrieveKnowledge("你们实体店在哪里"), /微信.*定位/);
+    assert.match(retrieveKnowledge("可以上门回收吗"), /上门范围/);
     assert.equal(retrieveKnowledge("今天天气不错"), "");
 });
 

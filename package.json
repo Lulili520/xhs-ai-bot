@@ -1,6 +1,6 @@
 {
   "name": "xhs_ai",
-  "version": "1.1.0",
+  "version": "1.2.0",
   "description": "支持动态多账号管理的小红书 AI 客服桌面应用",
   "main": "desktop/main.js",
   "scripts": {

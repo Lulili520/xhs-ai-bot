@@ -31,7 +31,7 @@ npm run dist:win
 
 构建结果位于 `dist/`。目标 Windows 电脑仍需安装 Google Chrome，双击 EXE 后即可管理账号。应用中的账号配置和登录资料保存在系统用户数据目录，不会因为替换新版 EXE 而丢失。
 
-已构建版本通过 GitHub Releases 发布，避免把大型二进制文件塞进源码历史。进入仓库的 Releases 页面即可下载 `XHS-AI-Customer-Service-1.1.0-Windows-x64.exe`。
+已构建版本通过 GitHub Releases 发布，避免把大型二进制文件塞进源码历史。进入仓库的 Releases 页面即可下载对应版本的 `XHS-AI-Customer-Service-*-Windows-x64.exe`。
 
 桌面端会区分启动中、等待登录、初始化、运行中、自动重启、停止中和启动失败。异常退出采用指数退避自动重启，10 分钟内连续失败 5 次后停止重试，避免无限崩溃循环。重复打开 EXE 时会聚焦已有窗口，不会启动第二套账号进程。
 
@@ -55,7 +55,7 @@ npm run start:all
 
 第一次运行会打开 Chrome，请手动登录。登录信息保存在 `xhs-profile/`，其中包含敏感凭据，不要上传或分享。
 
-运行日志会同时保存在 `data/service.log`，终端关闭后仍可排查漏回复、AI 错误和名片发送失败。
+命令行模式的本地运行文件按用途保存在 `data/`：日志位于 `data/logs/`，聊天导出位于 `data/exports/`，知识库位于 `data/knowledge/`。这些内容不会上传 GitHub。
 
 默认使用 DeepSeek。把官方密钥填入 `DEEPSEEK_API_KEY` 后，直接执行 `npm start` 即可；启动命令会自动加载 `.env`。程序使用 `deepseek-v4-flash`，并自动关闭不必要的思考模式。不设置密钥也可以运行，但只会使用安全降级话术。
 
@@ -85,12 +85,16 @@ npm run start:all
 │   ├── cli/              命令行多账号启动器
 │   └── tools/            对话导出与知识库构建工具
 ├── test/                 自动化测试
+├── data/                 本地运行数据（不提交 Git）
+│   ├── logs/             服务与账号日志
+│   ├── exports/          原始及清洗后的聊天导出
+│   └── knowledge/        本地业务知识库
 ├── dist/                 本地构建输出（EXE 通过 GitHub Releases 发布）
 ├── accounts.json         命令行模式账号配置；默认不预置账号
 └── package.json          启动、测试和打包命令
 ```
 
-运行产生的浏览器资料、日志、知识库缓存、`.env`、依赖目录和打包输出均不会提交到 Git。最终 Windows EXE 独立上传到 GitHub Releases。
+`data/` 中的现有内容会保留并按用途分类，但其中可能包含客户聊天和运行日志，整个目录都不会提交 Git。浏览器资料、`.env`、依赖目录和打包输出同样不会提交。最终 Windows EXE 独立上传到 GitHub Releases。
 
 ## 验证
 

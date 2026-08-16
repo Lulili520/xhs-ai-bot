@@ -1,15 +1,16 @@
 const fs = require("fs");
 const path = require("path");
 
-const DATA_DIR = path.resolve(__dirname, "../../data");
-const sourceFile = process.env.HISTORY_SOURCE || fs.readdirSync(DATA_DIR)
+const EXPORTS_DIR = path.resolve(__dirname, "../../data/exports");
+const KNOWLEDGE_DIR = path.resolve(__dirname, "../../data/knowledge");
+const sourceFile = process.env.HISTORY_SOURCE || fs.readdirSync(EXPORTS_DIR)
     .filter(name => /^reply-history-.*\.json$/.test(name))
     .sort()
     .at(-1);
 
-if (!sourceFile) throw new Error("No reply-history JSON found in data/");
+if (!sourceFile) throw new Error("No reply-history JSON found in data/exports/");
 
-const sourcePath = path.isAbsolute(sourceFile) ? sourceFile : path.join(DATA_DIR, sourceFile);
+const sourcePath = path.isAbsolute(sourceFile) ? sourceFile : path.join(EXPORTS_DIR, sourceFile);
 const raw = JSON.parse(fs.readFileSync(sourcePath, "utf8"));
 
 function cleanText(value) {
@@ -56,10 +57,10 @@ const knowledge = {
     ],
     entries: [
         { id: "wechat_add", keywords: ["微信", "添加", "联系方式", "名片"], answer: "点击我发的微信名片添加就可以了。", evidence: "历史高频话术" },
-        { id: "wechat_watch", keywords: ["观望", "涨价", "跌价", "行情", "以后价格"], answer: "出售或者先观望都可以加个微信，每天的最新金价涨跌您都能及时看到。", evidence: "历史高频话术" },
+        { id: "wechat_watch", keywords: ["观望", "涨价", "跌价", "行情", "以后价格"], answer: "观望或者出售都可以加个微信，涨价跌价都能知道，每天发实时金价，点击名片添加就行。", evidence: "业务转化规则" },
         { id: "item_type", keywords: ["首饰", "手镯", "镯子", "戒指", "项链", "金条", "金豆", "黄金物品"], answer: "可以的，您这个大概多少克、什么纯度呢？方便的话加微信发张实物图我看看。", evidence: "历史追问方式" },
-        { id: "location", keywords: ["地址", "位置", "实体店", "在哪", "到店"], answer: "我们在宝山，方便的话加个微信，我把具体位置发您。", evidence: "历史门店回答" },
-        { id: "home_service", keywords: ["上门", "距离", "太远", "闵行", "外地"], answer: "可以安排免费上门回收、现场打款，具体要看地区和数量。您把位置和大概克重发我确认一下。", evidence: "历史服务回答" },
+        { id: "location", keywords: ["地址", "位置", "实体店", "在哪", "到店"], answer: "您加个微信，点击名片添加就行，具体定位我后续在微信发您。", evidence: "门店隐私规则" },
+        { id: "home_service", keywords: ["上门", "距离", "太远", "闵行", "外地"], answer: "上门范围要结合地区和物品情况确认，您加个微信，把位置和物品图片发我看看。", evidence: "业务安全规则" },
         { id: "cash", keywords: ["现金", "打款", "转账", "付款", "到账"], answer: "可以现场验货后打款，具体结算方式咱们可以微信里确认。", evidence: "历史结算回答" },
         { id: "process", keywords: ["流程", "怎么回收", "怎么交易", "检测", "验货"], answer: "流程是预约、见面、验货、打款，确认无误后完成交易。您是什么黄金物品呢？", evidence: "历史交易流程" },
         { id: "price_low", keywords: ["便宜", "太低", "价格低", "能高", "加价", "报价高"], answer: "我们是按照实时大盘报价的，觉得价格暂时不合适也可以再观望一下。加个微信的话，涨跌都能及时了解。", evidence: "历史议价回答" },
@@ -78,8 +79,10 @@ const cleaned = {
     conversations
 };
 
-fs.writeFileSync(path.join(DATA_DIR, "cleaned-history.json"), JSON.stringify(cleaned, null, 2));
-fs.writeFileSync(path.join(DATA_DIR, "knowledge-base.json"), JSON.stringify(knowledge, null, 2));
+fs.mkdirSync(EXPORTS_DIR, { recursive: true });
+fs.mkdirSync(KNOWLEDGE_DIR, { recursive: true });
+fs.writeFileSync(path.join(EXPORTS_DIR, "cleaned-history.json"), JSON.stringify(cleaned, null, 2));
+fs.writeFileSync(path.join(KNOWLEDGE_DIR, "knowledge-base.json"), JSON.stringify(knowledge, null, 2));
 console.log("KNOWLEDGE_BASE_DONE", {
     source: knowledge.sourceFile,
     conversations: conversations.length,
