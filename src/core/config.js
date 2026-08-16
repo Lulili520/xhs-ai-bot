@@ -1,4 +1,5 @@
 const path = require("path");
+const projectRoot = path.resolve(__dirname, "../..");
 
 const aiProvider = String(process.env.AI_PROVIDER || "openai").toLowerCase();
 if (!new Set(["openai", "deepseek"]).has(aiProvider)) {
@@ -22,13 +23,13 @@ module.exports = Object.freeze({
         region: process.env.ACCOUNT_REGION || "地区待补充"
     }),
     xhsUrl: process.env.XHS_URL || "https://pro.xiaohongshu.com/im/multiCustomerService",
-    profileDir: path.resolve(__dirname, process.env.XHS_PROFILE_DIR || "xhs-profile"),
+    profileDir: path.resolve(projectRoot, process.env.XHS_PROFILE_DIR || "xhs-profile"),
     headless: process.env.HEADLESS === "true",
     scanIntervalMs: numberFromEnv("SCAN_INTERVAL_MS", 500, { min: 100 }),
     chatSettleMs: numberFromEnv("CHAT_SETTLE_MS", 300),
     replyDelayMs: numberFromEnv("REPLY_DELAY_MS", 1000),
     freshBeforeStartMs: numberFromEnv("FRESH_BEFORE_START_MS", 5000),
-    logFile: path.resolve(__dirname, process.env.LOG_FILE || "data/service.log"),
+    logFile: path.resolve(projectRoot, process.env.LOG_FILE || "data/service.log"),
     gold: Object.freeze({
         enabled: process.env.GOLD_PRICE_ENABLED !== "false",
         url: process.env.GOLD_PRICE_URL || "https://h5.baobte.com/679/quote",

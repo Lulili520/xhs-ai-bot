@@ -1,7 +1,7 @@
 const fs = require("fs");
 const path = require("path");
 
-const DATA_DIR = path.resolve(__dirname, "data");
+const DATA_DIR = path.resolve(__dirname, "../../data");
 const sourceFile = process.env.HISTORY_SOURCE || fs.readdirSync(DATA_DIR)
     .filter(name => /^reply-history-.*\.json$/.test(name))
     .sort()

@@ -2,9 +2,9 @@ const { chromium } = require("playwright");
 const fs = require("fs");
 const path = require("path");
 const util = require("util");
-const config = require("./config");
-const { buildReply } = require("./ai-reply");
-const { GoldPriceService } = require("./gold-price");
+const config = require("../core/config");
+const { buildReply } = require("../core/ai-reply");
+const { GoldPriceService } = require("../core/gold-price");
 
 // ============================================================
 // 配置

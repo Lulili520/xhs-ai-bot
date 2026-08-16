@@ -31,6 +31,8 @@ npm run dist:win
 
 构建结果位于 `dist/`。目标 Windows 电脑仍需安装 Google Chrome，双击 EXE 后即可管理账号。应用中的账号配置和登录资料保存在系统用户数据目录，不会因为替换新版 EXE 而丢失。
 
+已构建版本通过 GitHub Releases 发布，避免把大型二进制文件塞进源码历史。进入仓库的 Releases 页面即可下载 `XHS-AI-Customer-Service-1.0.0-Windows-x64.exe`。
+
 > 桌面构建不会包含 `.env`。`.env` 只供命令行开发模式使用，不应提交到 Git 或随安装包分发。
 
 ### 命令行模式
@@ -67,6 +69,25 @@ npm run start:all
 - AI 不应编造订单、价格、库存、物流和售后状态。
 - AI 超时或失败时自动降级，不把接口错误发送给客户。
 - 会话上下文目前只保存在内存，重启后清空。
+
+## 项目结构
+
+```text
+.
+├── desktop/              Electron 桌面端、账号管理与本地安全设置
+│   └── renderer/         桌面界面
+├── src/
+│   ├── core/             AI、配置、知识库与金价核心逻辑
+│   ├── xhs/              小红书浏览器自动化服务
+│   ├── cli/              命令行多账号启动器
+│   └── tools/            对话导出与知识库构建工具
+├── test/                 自动化测试
+├── dist/                 本地构建输出（EXE 通过 GitHub Releases 发布）
+├── accounts.json         命令行模式账号配置；默认不预置账号
+└── package.json          启动、测试和打包命令
+```
+
+运行产生的浏览器资料、日志、知识库缓存、`.env`、依赖目录和打包输出均不会提交到 Git。最终 Windows EXE 独立上传到 GitHub Releases。
 
 ## 验证
 

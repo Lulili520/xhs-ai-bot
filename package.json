@@ -4,13 +4,13 @@
   "description": "支持动态多账号管理的小红书 AI 客服桌面应用",
   "main": "desktop/main.js",
   "scripts": {
-    "start": "node --env-file-if-exists=.env xhs-service.js",
-    "start:all": "node --env-file-if-exists=.env multi-start.js",
+    "start": "node --env-file-if-exists=.env src/xhs/service.js",
+    "start:all": "node --env-file-if-exists=.env src/cli/multi-start.js",
     "desktop": "electron .",
     "dist:win": "electron-builder --win portable --x64",
-    "export-replies": "node --env-file-if-exists=.env export-replies.js",
-    "build-knowledge": "node --env-file-if-exists=.env build-knowledge-base.js",
-    "check": "node --check xhs-service.js && node --check multi-start.js && node --check export-replies.js && node --check build-knowledge-base.js && node --check knowledge-base.js && node --check ai-reply.js && node --check gold-price.js && node --check config.js && node --check desktop/main.js && node --check desktop/preload.js && node --check desktop/account-store.js && node --check desktop/runtime-manager.js && node --check desktop/env.js && node --check desktop/settings-store.js && node --check desktop/renderer/app.js",
+    "export-replies": "node --env-file-if-exists=.env src/tools/export-replies.js",
+    "build-knowledge": "node --env-file-if-exists=.env src/tools/build-knowledge-base.js",
+    "check": "node --check src/xhs/service.js && node --check src/cli/multi-start.js && node --check src/tools/export-replies.js && node --check src/tools/build-knowledge-base.js && node --check src/core/knowledge-base.js && node --check src/core/ai-reply.js && node --check src/core/gold-price.js && node --check src/core/config.js && node --check desktop/main.js && node --check desktop/preload.js && node --check desktop/account-store.js && node --check desktop/runtime-manager.js && node --check desktop/env.js && node --check desktop/settings-store.js && node --check desktop/renderer/app.js",
     "test": "node --test test/*.test.js"
   },
   "keywords": [],
@@ -33,7 +33,7 @@
     ],
     "files": [
       "desktop/**",
-      "*.js",
+      "src/**",
       "accounts.json",
       "package.json",
       "node_modules/**"

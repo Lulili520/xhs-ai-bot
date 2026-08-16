@@ -1,9 +1,9 @@
 const test = require("node:test");
 const assert = require("node:assert/strict");
-const { buildGoldPriceReply, buildRequest, cleanReply, fallbackReply, getOutputText } = require("../ai-reply");
-const { isGoldQuestion, normalizeRows } = require("../gold-price");
-const { enforceBusinessRules } = require("../ai-reply");
-const { retrieveKnowledge } = require("../knowledge-base");
+const { buildGoldPriceReply, buildRequest, cleanReply, fallbackReply, getOutputText } = require("../src/core/ai-reply");
+const { isGoldQuestion, normalizeRows } = require("../src/core/gold-price");
+const { enforceBusinessRules } = require("../src/core/ai-reply");
+const { retrieveKnowledge } = require("../src/core/knowledge-base");
 
 test("extracts Responses API output text", () => {
     assert.equal(getOutputText({ output: [{ content: [{ type: "output_text", text: "您好" }] }] }), "您好");
@@ -58,7 +58,7 @@ test("extracts gold buyback after a category column", () => {
 });
 
 test("gold quote uses the fixed buyback wording and WeChat guide", async () => {
-    const { buildReply } = require("../ai-reply");
+    const { buildReply } = require("../src/core/ai-reply");
     const result = await buildReply("u2", "黄金多少钱", "店铺实时回购报价：\n黄金：945.5元/克");
     assert.match(result.reply, /945\.5元\/克/);
     assert.equal(result.source, "gold_price");

@@ -1,7 +1,8 @@
 const fs = require("fs");
 const path = require("path");
+const projectRoot = path.resolve(__dirname, "../..");
 
-const knowledgePath = path.resolve(__dirname, process.env.KNOWLEDGE_BASE_PATH || "data/knowledge-base.json");
+const knowledgePath = path.resolve(projectRoot, process.env.KNOWLEDGE_BASE_PATH || "data/knowledge-base.json");
 let cache = { rules: [], entries: [] };
 
 function loadKnowledgeBase() {

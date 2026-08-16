@@ -79,7 +79,7 @@ async function createApp() {
         seedEnv: app.isPackaged ? {} : loadEnv(path.join(appRoot, ".env"))
     });
     runtime = new RuntimeManager({
-        workerPath: path.join(appRoot, "xhs-service.js"),
+        workerPath: path.join(appRoot, "src", "xhs", "service.js"),
         env: settingsStore.toEnv(),
         executablePath: process.execPath,
         cwd: dataDir

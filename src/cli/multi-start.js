@@ -2,7 +2,8 @@ const fs = require("fs");
 const path = require("path");
 const { spawn } = require("child_process");
 
-const configPath = path.resolve(__dirname, process.env.ACCOUNTS_FILE || "accounts.json");
+const projectRoot = path.resolve(__dirname, "../..");
+const configPath = path.resolve(projectRoot, process.env.ACCOUNTS_FILE || "accounts.json");
 const config = JSON.parse(fs.readFileSync(configPath, "utf8"));
 const accounts = (config.accounts || []).filter(account => account.enabled !== false);
 
@@ -15,7 +16,7 @@ for (const account of accounts) {
     if (!account.id || !account.name || !account.region || !account.profileDir) {
         throw new Error("每个账号都必须配置 id、name、region 和 profileDir");
     }
-    const profileDir = path.resolve(__dirname, account.profileDir);
+    const profileDir = path.resolve(projectRoot, account.profileDir);
     if (profileDirs.has(profileDir)) {
         throw new Error(`多个账号不能共用浏览器目录：${account.profileDir}`);
     }
@@ -27,15 +28,15 @@ let shuttingDown = false;
 
 function startAccount(account) {
     const label = `${account.name}/${account.region}`;
-    const child = spawn(process.execPath, [path.resolve(__dirname, "xhs-service.js")], {
-        cwd: __dirname,
+    const child = spawn(process.execPath, [path.resolve(projectRoot, "src/xhs/service.js")], {
+        cwd: projectRoot,
         env: {
             ...process.env,
             ACCOUNT_ID: account.id,
             ACCOUNT_NAME: account.name,
             ACCOUNT_REGION: account.region,
-            XHS_PROFILE_DIR: account.profileDir,
-            LOG_FILE: account.logFile || `data/${account.id}.log`,
+            XHS_PROFILE_DIR: path.resolve(projectRoot, account.profileDir),
+            LOG_FILE: path.resolve(projectRoot, account.logFile || `data/${account.id}.log`),
             WECHAT_CARD_TYPE: account.wechatCardType || process.env.WECHAT_CARD_TYPE || "enterprise",
             WECHAT_CARD_NAME: account.wechatCardName || process.env.WECHAT_CARD_NAME || ""
         },

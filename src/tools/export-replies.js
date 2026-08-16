@@ -2,10 +2,10 @@ const { chromium } = require("playwright");
 const crypto = require("crypto");
 const fs = require("fs/promises");
 const path = require("path");
-const config = require("./config");
+const config = require("../core/config");
 
 const MAX_CONVERSATIONS = Number(process.env.EXPORT_MAX_CONVERSATIONS || 50);
-const OUTPUT_DIR = path.resolve(__dirname, "data");
+const OUTPUT_DIR = path.resolve(__dirname, "../../data");
 const sleep = ms => new Promise(resolve => setTimeout(resolve, ms));
 
 function pseudonym(value) {
